@@ -212,6 +212,10 @@ export type Database = {
           amount: number | null;
           probability: number | null;
           close_date: string | null;
+          has_contract: boolean | null;
+          contract_term_months: number | null;
+          coverage_zone: string | null;
+          service_type: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -233,6 +237,10 @@ export type Database = {
           amount?: number | null;
           probability?: number | null;
           close_date?: string | null;
+          has_contract?: boolean | null;
+          contract_term_months?: number | null;
+          coverage_zone?: string | null;
+          service_type?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -245,7 +253,13 @@ export type Database = {
           name: string;
           category: string;
           pricing_mode: Database["public"]["Enums"]["pricing_mode"];
-          base_monthly_revenue: number | null;
+          base_unit_price: number | null;
+          allow_sale: boolean;
+          allow_rental: boolean;
+          allow_concession: boolean;
+          min_concession_units: number | null;
+          rental_monthly_fee: number | null;
+          notes: string | null;
           is_active: boolean;
           created_at: string;
           updated_at: string;
@@ -256,12 +270,76 @@ export type Database = {
           name: string;
           category: string;
           pricing_mode?: Database["public"]["Enums"]["pricing_mode"];
-          base_monthly_revenue?: number | null;
+          base_unit_price?: number | null;
+          allow_sale?: boolean;
+          allow_rental?: boolean;
+          allow_concession?: boolean;
+          min_concession_units?: number | null;
+          rental_monthly_fee?: number | null;
+          notes?: string | null;
           is_active?: boolean;
           created_at?: string;
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["products"]["Insert"]>;
+      };
+      product_pricing_rules: {
+        Row: {
+          id: string;
+          org_id: string;
+          product_id: string;
+          min_quantity: number;
+          max_quantity: number | null;
+          price: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          org_id: string;
+          product_id: string;
+          min_quantity: number;
+          max_quantity?: number | null;
+          price: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["product_pricing_rules"]["Insert"]>;
+      };
+      product_rules: {
+        Row: {
+          id: string;
+          org_id: string;
+          product_id: string | null;
+          product_category: string | null;
+          service_type: string | null;
+          coverage_zone: string | null;
+          name: string;
+          description: string | null;
+          priority: number;
+          conditions: Json;
+          effects: Json;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          org_id: string;
+          product_id?: string | null;
+          product_category?: string | null;
+          service_type?: string | null;
+          coverage_zone?: string | null;
+          name: string;
+          description?: string | null;
+          priority?: number;
+          conditions: Json;
+          effects: Json;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["product_rules"]["Insert"]>;
       };
       opportunity_products: {
         Row: {
@@ -274,6 +352,12 @@ export type Database = {
           pricing_mode: Database["public"]["Enums"]["pricing_mode"];
           monthly_revenue: number;
           notes: string | null;
+          unit_price: number | null;
+          total_price: number | null;
+          benefits: string[] | null;
+          extra_charges: number | null;
+          applied_rule_ids: string[] | null;
+          rule_snapshot: Json | null;
           created_at: string;
           updated_at: string;
         };
@@ -287,6 +371,12 @@ export type Database = {
           pricing_mode: Database["public"]["Enums"]["pricing_mode"];
           monthly_revenue: number;
           notes?: string | null;
+          unit_price?: number | null;
+          total_price?: number | null;
+          benefits?: string[] | null;
+          extra_charges?: number | null;
+          applied_rule_ids?: string[] | null;
+          rule_snapshot?: Json | null;
           created_at?: string;
           updated_at?: string;
         };

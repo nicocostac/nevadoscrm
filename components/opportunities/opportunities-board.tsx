@@ -1,13 +1,15 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   DndContext,
   PointerSensor,
+  DragOverlay,
   useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -23,6 +25,7 @@ import { useAccounts } from "@/hooks/use-accounts";
 import { useOpportunities, useOpportunityStageMutation } from "@/hooks/use-opportunities";
 import { OPPORTUNITY_STAGES } from "@/lib/constants";
 import type { Opportunity } from "@/lib/types";
+import { EditOpportunityDialog } from "@/components/opportunities/edit-opportunity-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,6 +44,9 @@ export function OpportunitiesBoard() {
   const { data, isLoading, isError } = useOpportunities();
   const accountsQuery = useAccounts();
   const mutation = useOpportunityStageMutation();
+  const [activeOpportunity, setActiveOpportunity] = useState<Opportunity | null>(null);
+  const [editingOpportunity, setEditingOpportunity] = useState<Opportunity | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -68,6 +74,11 @@ export function OpportunitiesBoard() {
     return initial;
   }, [data]);
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const opportunity: Opportunity | undefined = event.active.data.current?.opportunity;
+    setActiveOpportunity(opportunity ?? null);
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over) return;
@@ -75,6 +86,16 @@ export function OpportunitiesBoard() {
     const opportunity: Opportunity | undefined = active.data.current?.opportunity;
     if (!opportunity || opportunity.stage === targetStage) return;
     mutation.mutate({ id: opportunity.id, stage: targetStage });
+    setActiveOpportunity(null);
+  };
+
+  const handleDragCancel = () => {
+    setActiveOpportunity(null);
+  };
+
+  const handleEditOpportunity = (opportunity: Opportunity) => {
+    setEditingOpportunity(opportunity);
+    setIsEditOpen(true);
   };
 
   if (isError) {
@@ -107,19 +128,44 @@ export function OpportunitiesBoard() {
   }
 
   return (
-    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {OPPORTUNITY_STAGES.map((stage) => (
-          <OpportunityColumn
-            key={stage}
-            id={stage}
-            title={stage}
-            opportunities={grouped[stage] ?? []}
-            accountNameMap={accountNameMap}
-          />
-        ))}
-      </div>
-    </DndContext>
+    <>
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {OPPORTUNITY_STAGES.map((stage) => (
+            <OpportunityColumn
+              key={stage}
+              id={stage}
+              title={stage}
+              opportunities={grouped[stage] ?? []}
+              accountNameMap={accountNameMap}
+              onEdit={handleEditOpportunity}
+            />
+          ))}
+        </div>
+        <DragOverlay>
+          {activeOpportunity ? (
+            <OpportunityCardPreview
+              opportunity={activeOpportunity}
+              accountName={
+                activeOpportunity.account?.name ??
+                accountNameMap.get(activeOpportunity.account_id ?? "") ??
+                ""
+              }
+            />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+      <EditOpportunityDialog
+        open={isEditOpen}
+        opportunity={editingOpportunity}
+        onOpenChange={(value) => {
+          setIsEditOpen(value);
+          if (!value) {
+            setEditingOpportunity(null);
+          }
+        }}
+      />
+    </>
   );
 }
 
@@ -128,9 +174,10 @@ type OpportunityColumnProps = {
   title: string;
   opportunities: Opportunity[];
   accountNameMap: Map<string, string>;
+  onEdit: (opportunity: Opportunity) => void;
 };
 
-function OpportunityColumn({ id, title, opportunities, accountNameMap }: OpportunityColumnProps) {
+function OpportunityColumn({ id, title, opportunities, accountNameMap, onEdit }: OpportunityColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
   return (
     <div ref={setNodeRef}>
@@ -161,6 +208,7 @@ function OpportunityColumn({ id, title, opportunities, accountNameMap }: Opportu
                   accountName={
                     opportunity.account?.name ?? accountNameMap.get(opportunity.account_id ?? "") ?? ""
                   }
+                  onEdit={onEdit}
                 />
               ))
             )}
@@ -174,9 +222,10 @@ function OpportunityColumn({ id, title, opportunities, accountNameMap }: Opportu
 type OpportunityCardProps = {
   opportunity: Opportunity;
   accountName?: string;
+  onEdit: (opportunity: Opportunity) => void;
 };
 
-function OpportunityCard({ opportunity, accountName }: OpportunityCardProps) {
+function OpportunityCard({ opportunity, accountName, onEdit }: OpportunityCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: opportunity.id,
     data: { opportunity },
@@ -191,8 +240,7 @@ function OpportunityCard({ opportunity, accountName }: OpportunityCardProps) {
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
+      onClick={() => onEdit(opportunity)}
       className={`space-y-3 rounded-2xl border-2 p-4 shadow-sm transition ${
         STAGE_ACCENTS[opportunity.stage] ?? "border-border bg-card"
       } ${isDragging ? "scale-[1.02] ring-2 ring-primary/40" : ""}`}
@@ -222,9 +270,48 @@ function OpportunityCard({ opportunity, accountName }: OpportunityCardProps) {
         <span className="font-medium">
           {opportunity.owner?.full_name ?? opportunity.owner?.email ?? "Sin owner"}
         </span>
-        <Button size="icon" variant="ghost" className="text-muted-foreground" aria-label="Mover">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="text-muted-foreground"
+          aria-label="Mover"
+          {...attributes}
+          {...listeners}
+          onClick={(event) => event.stopPropagation()}
+        >
           <MoveHorizontal className="h-4 w-4" aria-hidden />
         </Button>
+      </div>
+    </div>
+  );
+}
+
+function OpportunityCardPreview({ opportunity, accountName }: { opportunity: Opportunity; accountName?: string }) {
+  return (
+    <div className={`space-y-3 rounded-2xl border-2 p-4 shadow-lg ${STAGE_ACCENTS[opportunity.stage] ?? "border-border bg-card"}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold leading-tight">{opportunity.name}</h3>
+          <p className="text-xs text-muted-foreground">{accountName ?? ""}</p>
+        </div>
+        <Badge variant="secondary" className="text-xs">
+          Prob. {Math.round(opportunity.probability ?? 0)}%
+        </Badge>
+      </div>
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <CircleDollarSign className="h-4 w-4" aria-hidden />
+        {'$' + Intl.NumberFormat("es-CL").format(opportunity.amount ?? 0)}
+      </div>
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <CalendarDays className="h-4 w-4" aria-hidden /> Cierra {" "}
+        {opportunity.close_date
+          ? format(new Date(opportunity.close_date), "dd MMM", { locale: es })
+          : "Sin fecha"}
+      </div>
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-medium">
+          {opportunity.owner?.full_name ?? opportunity.owner?.email ?? "Sin owner"}
+        </span>
       </div>
     </div>
   );

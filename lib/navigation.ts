@@ -5,6 +5,8 @@ import {
   CalendarDays,
   GaugeCircle,
   LayoutDashboard,
+  Package,
+  SlidersHorizontal,
   Settings2,
   Users,
   UsersRound,
@@ -35,6 +37,18 @@ export const navItems: NavItem[] = [
     description: "Visualiza el pipeline por etapas con arrastrar y soltar.",
     href: "/opportunities",
     icon: BriefcaseBusiness,
+  },
+  {
+    title: "Productos",
+    description: "Gestiona catálogo y reglas por modalidad.",
+    href: "/products",
+    icon: Package,
+  },
+  {
+    title: "Reglas",
+    description: "Configura precios y beneficios automáticos.",
+    href: "/products/rules",
+    icon: SlidersHorizontal,
   },
   {
     title: "Cuentas",

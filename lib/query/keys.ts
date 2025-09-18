@@ -15,6 +15,7 @@ export const queryKeys = {
   },
   products: {
     all: ["products"] as const,
+    rules: ["products", "rules"] as const,
   },
   activities: {
     all: ["activities"] as const,

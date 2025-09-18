@@ -1,10 +1,11 @@
 "use server";
 
-import { getServerSupabaseClient } from "@/app/(app)/actions/utils";
-import type { OpportunityProduct, OpportunityProductInputPayload, Product } from "@/lib/types";
+import { getCurrentOrgId, getServerSupabaseClient } from "@/app/(app)/actions/utils";
+import { isMissingRelationshipError, isMissingTableError } from "@/lib/supabase/errors";
+import type { OpportunityProduct, OpportunityProductInputPayload, Product, ProductFilters } from "@/lib/types";
 
 const OPPORTUNITY_PRODUCT_SELECT =
-  "id, opportunity_id, product_id, name, category, quantity, pricing_mode, monthly_revenue, notes";
+  "id, opportunity_id, product_id, name, category, quantity, pricing_mode, monthly_revenue, notes, unit_price, total_price, benefits, extra_charges, applied_rule_ids, rule_snapshot";
 
 function normalize(value?: string | null) {
   if (value === undefined || value === null) return null;
@@ -25,7 +26,13 @@ export async function replaceOpportunityProductsAction({
     .from("opportunity_products")
     .delete()
     .eq("opportunity_id", opportunityId);
-  if (deleteError) throw deleteError;
+  if (deleteError) {
+    if (isMissingTableError(deleteError)) {
+      console.warn("opportunity_products table not found; skipping product sync");
+      return [] as OpportunityProduct[];
+    }
+    throw deleteError;
+  }
 
   if (products.length === 0) {
     return [] as OpportunityProduct[];
@@ -40,6 +47,12 @@ export async function replaceOpportunityProductsAction({
     pricing_mode: item.pricingMode,
     monthly_revenue: item.monthlyRevenue,
     notes: normalize(item.notes ?? null),
+    unit_price: item.unitPrice ?? null,
+    total_price: item.unitPrice ? item.unitPrice * item.quantity : item.monthlyRevenue,
+    benefits: item.benefits ?? null,
+    extra_charges: item.extraCharges ?? null,
+    applied_rule_ids: item.appliedRuleIds ?? null,
+    rule_snapshot: item.ruleSnapshot ?? null,
   }));
 
   const { data, error } = await supabase
@@ -47,21 +60,68 @@ export async function replaceOpportunityProductsAction({
     .insert(records)
     .select(OPPORTUNITY_PRODUCT_SELECT);
 
-  if (error) throw error;
+  if (error) {
+    if (isMissingTableError(error)) {
+      console.warn("opportunity_products table not found; skipping product sync");
+      return [] as OpportunityProduct[];
+    }
+    throw error;
+  }
 
   return (data ?? []) as OpportunityProduct[];
 }
 
-export async function fetchProducts() {
-  const { supabase } = await getServerSupabaseClient();
+export async function fetchProducts(filters: ProductFilters = {}) {
+  const { supabase, user } = await getServerSupabaseClient();
+  const orgId = await getCurrentOrgId(supabase, user.id);
 
-  const { data, error } = await supabase
-    .from("products")
-    .select("*")
-    .eq("is_active", true)
-    .order("name", { ascending: true });
+  try {
+    const { search, category, pricingMode, includeInactive } = filters;
 
-  if (error) throw error;
+    let query = supabase
+      .from("products")
+      .select("*, pricing_rules:product_pricing_rules(*)")
+      .eq("org_id", orgId)
+      .order("name", { ascending: true });
 
-  return (data ?? []) as Product[];
+    if (!includeInactive) {
+      query = query.eq("is_active", true);
+    }
+
+    if (category && category !== "todos") {
+      query = query.eq("category", category.trim());
+    }
+
+    if (pricingMode) {
+      query = query.eq("pricing_mode", pricingMode);
+    }
+
+    if (search && search.trim().length > 0) {
+      const term = `%${search.trim()}%`;
+      query = query.or(`name.ilike.${term},category.ilike.${term}`);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      if (isMissingTableError(error) || isMissingRelationshipError(error)) {
+        console.warn("products table not found; returning empty catalog");
+        return [] as Product[];
+      }
+      throw error;
+    }
+
+    return (data ?? []).map((product) => ({
+      ...product,
+      pricing_rules: Array.isArray((product as Product).pricing_rules)
+        ? ((product as Product).pricing_rules ?? []).sort((a, b) => (a.min_quantity ?? 0) - (b.min_quantity ?? 0))
+        : [],
+    })) as Product[];
+  } catch (error) {
+    if (isMissingTableError(error) || isMissingRelationshipError(error)) {
+      console.warn("products table not found; returning empty catalog");
+      return [] as Product[];
+    }
+    throw error;
+  }
 }

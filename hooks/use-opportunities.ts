@@ -6,16 +6,15 @@ import { toast } from "sonner";
 
 import {
   createOpportunityAction,
+  updateOpportunityAction,
   updateOpportunityStageAction,
   type OpportunityInput,
   type OpportunityStageInput,
+  type OpportunityUpdateInput,
 } from "@/app/(app)/actions/opportunities";
 import { queryKeys } from "@/lib/query/keys";
 import { useSupabaseClient } from "@/lib/supabase/supabase-context";
 import type { Opportunity } from "@/lib/types";
-
-const opportunitySelect =
-  "*, owner:profiles!opportunities_owner_id_fkey(id, full_name), account:accounts(id, name), lead:leads(id, name)";
 
 const opportunitySelect =
   "*, owner:profiles!opportunities_owner_id_fkey(id, full_name), account:accounts(id, name), lead:leads(id, name)";
@@ -118,6 +117,28 @@ export function useOpportunityCreateMutation() {
     onError: (error) => {
       console.error(error);
       toast.error("No se pudo crear la oportunidad");
+    },
+  });
+}
+
+export function useOpportunityUpdateMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: OpportunityUpdateInput) => updateOpportunityAction(input),
+    onSuccess: (opportunity) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.overview });
+      if (opportunity.lead?.id) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.leads.detail(opportunity.lead.id) });
+      }
+      toast.success("Oportunidad actualizada", {
+        description: `${opportunity.name}`,
+      });
+    },
+    onError: (error) => {
+      console.error(error);
+      toast.error("No se pudo actualizar la oportunidad");
     },
   });
 }

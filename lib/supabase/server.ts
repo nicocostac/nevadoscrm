@@ -20,13 +20,26 @@ export async function createSupabaseServerClient() {
         return cookieStore.get(name)?.value;
       },
       set(name: string, value: string, options: CookieOptions) {
-        cookieStore.set(name, value, options);
+        try {
+          cookieStore.set(name, value, options);
+        } catch (error) {
+          if (!isReadonlyCookieError(error)) throw error;
+        }
       },
       remove(name: string, options: CookieOptions) {
         void options;
-        cookieStore.delete(name);
+        try {
+          cookieStore.delete(name);
+        } catch (error) {
+          if (!isReadonlyCookieError(error)) throw error;
+        }
       },
     },
     headers: () => headerList,
   });
+}
+
+function isReadonlyCookieError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  return error.message.includes("Cookies can only be modified in a Server Action or Route Handler");
 }

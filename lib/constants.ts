@@ -75,3 +75,34 @@ export const OPPORTUNITY_STAGES = [
   "Cerrado Ganado",
   "Cerrado Perdido",
 ] as const;
+
+export const PRODUCT_CATEGORIES = [
+  "Recargas",
+  "Bidones",
+  "Dispensadores",
+  "Accesorios",
+  "Servicios",
+  "Otros",
+] as const;
+
+export const COVERAGE_ZONES = [
+  "cobertura",
+  "fuera_cobertura",
+  "nacional",
+] as const;
+
+export const SERVICE_TYPES = [
+  "standard",
+  "evento",
+] as const;
+
+export const PRODUCT_RULE_BENEFITS = [
+  "préstamo_bidones",
+  "bidones_comodato",
+  "dispensador_basico_comodato",
+  "dispensador_electrico_comodato",
+  "despacho_gratis",
+  "contrato_12m",
+  "precio_especial",
+  "otro",
+] as const;
