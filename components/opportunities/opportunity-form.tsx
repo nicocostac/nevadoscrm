@@ -253,7 +253,7 @@ export function OpportunityForm({
           <Label>
             Monto estimado ($) <span className="text-destructive">*</span>
           </Label>
-          <Input type="number" min={0} step={1000} {...form.register("amount", { valueAsNumber: true })} />
+          <Input type="number" min={0} step={100} {...form.register("amount", { valueAsNumber: true })} />
         </div>
         <div className="space-y-2">
           <Label>Cierre esperado</Label>

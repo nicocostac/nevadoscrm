@@ -29,6 +29,7 @@ import { EditOpportunityDialog } from "@/components/opportunities/edit-opportuni
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const STAGE_ACCENTS: Record<string, string> = {
@@ -47,6 +48,7 @@ export function OpportunitiesBoard() {
   const [activeOpportunity, setActiveOpportunity] = useState<Opportunity | null>(null);
   const [editingOpportunity, setEditingOpportunity] = useState<Opportunity | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -73,6 +75,8 @@ export function OpportunitiesBoard() {
     });
     return initial;
   }, [data]);
+
+  const sortedOpportunities = useMemo(() => [...((data as Opportunity[]) ?? [])], [data]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const opportunity: Opportunity | undefined = event.active.data.current?.opportunity;
@@ -129,32 +133,58 @@ export function OpportunitiesBoard() {
 
   return (
     <>
-      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {OPPORTUNITY_STAGES.map((stage) => (
-            <OpportunityColumn
-              key={stage}
-              id={stage}
-              title={stage}
-              opportunities={grouped[stage] ?? []}
-              accountNameMap={accountNameMap}
-              onEdit={handleEditOpportunity}
-            />
-          ))}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex rounded-xl border border-border/60 bg-muted/20 p-1">
+          <Button
+            size="sm"
+            variant={viewMode === "kanban" ? "default" : "ghost"}
+            onClick={() => setViewMode("kanban")}
+          >
+            Kanban
+          </Button>
+          <Button
+            size="sm"
+            variant={viewMode === "list" ? "default" : "ghost"}
+            onClick={() => setViewMode("list")}
+          >
+            Lista
+          </Button>
         </div>
-        <DragOverlay>
-          {activeOpportunity ? (
-            <OpportunityCardPreview
-              opportunity={activeOpportunity}
-              accountName={
-                activeOpportunity.account?.name ??
-                accountNameMap.get(activeOpportunity.account_id ?? "") ??
-                ""
-              }
-            />
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+      </div>
+      {viewMode === "kanban" ? (
+        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {OPPORTUNITY_STAGES.map((stage) => (
+              <OpportunityColumn
+                key={stage}
+                id={stage}
+                title={stage}
+                opportunities={grouped[stage] ?? []}
+                accountNameMap={accountNameMap}
+                onEdit={handleEditOpportunity}
+              />
+            ))}
+          </div>
+          <DragOverlay>
+            {activeOpportunity ? (
+              <OpportunityCardPreview
+                opportunity={activeOpportunity}
+                accountName={
+                  activeOpportunity.account?.name ??
+                  accountNameMap.get(activeOpportunity.account_id ?? "") ??
+                  ""
+                }
+              />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      ) : (
+        <OpportunitiesListView
+          opportunities={sortedOpportunities}
+          accountNameMap={accountNameMap}
+          onEdit={handleEditOpportunity}
+        />
+      )}
       <EditOpportunityDialog
         open={isEditOpen}
         opportunity={editingOpportunity}
@@ -314,5 +344,54 @@ function OpportunityCardPreview({ opportunity, accountName }: { opportunity: Opp
         </span>
       </div>
     </div>
+  );
+}
+type OpportunitiesListViewProps = {
+  opportunities: Opportunity[];
+  accountNameMap: Map<string, string>;
+  onEdit: (opportunity: Opportunity) => void;
+};
+
+function OpportunitiesListView({ opportunities, accountNameMap, onEdit }: OpportunitiesListViewProps) {
+  return (
+    <Card className="overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Nombre</TableHead>
+            <TableHead>Cuenta</TableHead>
+            <TableHead>Etapa</TableHead>
+            <TableHead>Prob.</TableHead>
+            <TableHead>Monto</TableHead>
+            <TableHead>Cierre</TableHead>
+            <TableHead>Owner</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {opportunities.map((opportunity) => (
+            <TableRow key={opportunity.id} className="cursor-pointer hover:bg-muted/40" onClick={() => onEdit(opportunity)}>
+              <TableCell className="font-medium">{opportunity.name}</TableCell>
+              <TableCell>{opportunity.account?.name ?? accountNameMap.get(opportunity.account_id ?? "") ?? ""}</TableCell>
+              <TableCell>{opportunity.stage}</TableCell>
+              <TableCell>{Math.round(opportunity.probability ?? 0)}%</TableCell>
+              <TableCell>{'$' + Intl.NumberFormat("es-CL").format(opportunity.amount ?? 0)}</TableCell>
+              <TableCell>
+                {opportunity.close_date
+                  ? format(new Date(opportunity.close_date), "dd MMM", { locale: es })
+                  : "Sin fecha"}
+              </TableCell>
+              <TableCell>{opportunity.owner?.full_name ?? opportunity.owner?.email ?? ""}</TableCell>
+            </TableRow>
+          ))}
+          {opportunities.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={7} className="py-6 text-center text-sm text-muted-foreground">
+                No hay oportunidades registradas.
+              </TableCell>
+            </TableRow>
+          ) : null}
+        </TableBody>
+      </Table>
+    </Card>
   );
 }

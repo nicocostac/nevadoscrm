@@ -27,7 +27,7 @@ export const opportunityProductRowSchema = z.object({
   benefits: z.array(z.string()).nullable().optional(),
   extraCharges: z.number().nullable().optional(),
   appliedRuleIds: z.array(z.string()).nullable().optional(),
-  ruleSnapshot: z.record(z.any()).nullable().optional(),
+  ruleSnapshot: z.unknown().nullable().optional(),
 });
 
 export type OpportunityProductFormValues = z.infer<typeof opportunityProductRowSchema>;
