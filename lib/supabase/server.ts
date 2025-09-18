@@ -6,6 +6,14 @@ import type { Database } from "@/lib/supabase/types";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+const cookieOptions: CookieOptions = {
+  maxAge: 60 * 60 * 24, // 24h to mirror auth session timebox
+  path: "/",
+  sameSite: "lax",
+  secure: process.env.NODE_ENV === "production",
+  httpOnly: true,
+};
+
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error("Supabase env vars are not set");
 }
@@ -15,6 +23,7 @@ export async function createSupabaseServerClient() {
   const headerList = await headers();
 
   return createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
+    cookieOptions,
     cookies: {
       get(name: string) {
         return cookieStore.get(name)?.value;
@@ -26,8 +35,8 @@ export async function createSupabaseServerClient() {
           if (!isReadonlyCookieError(error)) throw error;
         }
       },
-      remove(name: string, options: CookieOptions) {
-        void options;
+      remove(name: string, _options: CookieOptions) {
+        void _options;
         try {
           cookieStore.delete(name);
         } catch (error) {

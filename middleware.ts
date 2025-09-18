@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+const cookieOptions: CookieOptions = {
+  maxAge: 60 * 60 * 24,
+  path: "/",
+  sameSite: "lax",
+  secure: process.env.NODE_ENV === "production",
+  httpOnly: true,
+};
 
 const PROTECTED_PATHS = [
   "/dashboard",
@@ -22,6 +30,7 @@ export async function middleware(request: NextRequest) {
 
   const response = NextResponse.next();
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookieOptions,
     cookies: {
       get(name) {
         return request.cookies.get(name)?.value;
@@ -35,19 +44,22 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const [sessionResponse, userResponse] = await Promise.all([
+    supabase.auth.getSession(),
+    supabase.auth.getUser(),
+  ]);
+  const session = sessionResponse.data.session;
+  const user = userResponse.data.user;
 
   const { pathname } = request.nextUrl;
   const isAuthRoute = pathname.startsWith("/login") || pathname.startsWith("/auth/callback");
   const isProtectedRoute = PROTECTED_PATHS.some((path) => pathname.startsWith(path));
 
-  if (session) {
+  if (session && user) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("requires_password_reset")
-      .eq("id", session.user.id)
+      .eq("id", user.id)
       .maybeSingle();
 
     if (profile?.requires_password_reset && pathname !== "/auth/reset-password") {
@@ -62,13 +74,13 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (!session && isProtectedRoute) {
+  if ((!session || !user) && isProtectedRoute) {
     const redirectUrl = new URL("/login", request.url);
     redirectUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (session && isAuthRoute) {
+  if (session && user && isAuthRoute) {
     const redirectTo = request.nextUrl.searchParams.get("redirect") ?? "/dashboard";
     return NextResponse.redirect(new URL(redirectTo, request.url));
   }

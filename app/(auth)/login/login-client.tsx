@@ -38,6 +38,7 @@ export function LoginClient({ allowMagicLink }: LoginClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = useMemo(() => searchParams.get("redirect") ?? "/dashboard", [searchParams]);
+  const sessionReason = useMemo(() => searchParams.get("reason"), [searchParams]);
   const supabase = useSupabaseClient();
   const { session } = useSessionContext();
   const [loading, setLoading] = useState(false);
@@ -49,6 +50,18 @@ export function LoginClient({ allowMagicLink }: LoginClientProps) {
     resolver: zodResolver(magicSchema),
     defaultValues: { email: "" },
   });
+
+  useEffect(() => {
+    if (sessionReason === "session-expired") {
+      toast.info("Tu sesión expiró", {
+        description: "Vuelve a iniciar sesión para continuar.",
+      });
+    } else if (sessionReason === "session-inactive") {
+      toast.info("Cerramos la sesión por inactividad", {
+        description: "Ingresa nuevamente para retomar tu trabajo.",
+      });
+    }
+  }, [sessionReason]);
 
   useEffect(() => {
     if (session) {

@@ -18,11 +18,11 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export function UserMenu() {
-  const { profile, session } = useSessionContext();
+  const { profile, user } = useSessionContext();
   const [pending, startTransition] = useTransition();
   const [profileOpen, setProfileOpen] = useState(false);
 
-  const fallbackName = profile?.full_name ?? session?.user.user_metadata?.full_name ?? session?.user.email ?? "Invitado";
+  const fallbackName = profile?.full_name ?? user?.user_metadata?.full_name ?? user?.email ?? "Invitado";
   const initials = fallbackName
     .split(" ")
     .map((part) => part[0])
@@ -57,7 +57,7 @@ export function UserMenu() {
             <div className="flex flex-col">
               <span className="font-semibold">{fallbackName}</span>
               <span className="text-xs text-muted-foreground">
-                {profile?.email ?? session?.user.email ?? "Sin correo"}
+                {profile?.email ?? user?.email ?? "Sin correo"}
               </span>
             </div>
           </DropdownMenuLabel>

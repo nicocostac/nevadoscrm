@@ -155,11 +155,11 @@ max_frequency = "5s"
 # 4152127777 = "123456"
 
 # Configure logged in session timeouts.
-# [auth.sessions]
-# Force log out after the specified duration.
-# timebox = "24h"
-# Force log out if the user has been inactive longer than the specified duration.
-# inactivity_timeout = "8h"
+[auth.sessions]
+# Force logout after 24h regardless of refresh activity.
+timebox = "24h"
+# Close session after 30m of inactivity to limit exposure on idle devices.
+inactivity_timeout = "30m"
 
 # This hook runs before a token is issued and allows you to add additional claims based on the authentication method used.
 # [auth.hook.custom_access_token]

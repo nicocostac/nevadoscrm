@@ -58,7 +58,7 @@ export default async function RootLayout({
           "min-h-screen bg-background font-sans text-foreground antialiased"
         )}
       >
-        <Providers initialSession={session} initialProfile={profile}>
+        <Providers initialSession={session} initialProfile={profile} initialUser={user}>
           {children}
           <Toaster />
         </Providers>

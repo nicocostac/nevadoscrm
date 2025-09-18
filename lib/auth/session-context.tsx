@@ -1,12 +1,13 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type { Session } from "@supabase/supabase-js";
+import type { Session, User } from "@supabase/supabase-js";
 
 import type { Profile } from "@/lib/types";
 
 export type SessionContextValue = {
   session: Session | null;
+  user: User | null;
   profile: Profile | null;
 };
 

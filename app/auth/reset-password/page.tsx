@@ -49,15 +49,27 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     const validateRecovery = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) {
+      try {
+        const [sessionResponse, userResponse] = await Promise.all([
+          supabase.auth.getSession(),
+          supabase.auth.getUser(),
+        ]);
+
+        const activeSession = sessionResponse.data.session;
+        const currentUser = userResponse.data.user;
+
+        if (!activeSession || !currentUser) {
+          throw new Error("recovery-session-missing");
+        }
+
+        const sessionEmail = currentUser.email ?? currentUser.user_metadata?.email ?? null;
+        setEmail(typeof sessionEmail === "string" ? sessionEmail : null);
+        setSessionReady(true);
+      } catch (error) {
+        console.error("Failed to validate recovery session", error);
         toast.error("El enlace de recuperación no es válido o expiró.");
         router.replace("/login");
-        return;
       }
-      const sessionEmail = data.session.user.email ?? data.session.user.user_metadata?.email ?? null;
-      setEmail(typeof sessionEmail === "string" ? sessionEmail : null);
-      setSessionReady(true);
     };
     void validateRecovery();
   }, [router, supabase]);
